@@ -1,0 +1,30 @@
+{
+  "name": "castaway-angler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate": "node --import tsx scripts/validate.ts",
+    "sim": "node --import tsx scripts/simulate.ts"
+  },
+  "dependencies": {
+    "phaser": "4.2.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0",
+    "@types/node": "26.6.6",
+    "tsx": "4.23.15",
+    "fake-indexeddb": "6.2.8"
+  },
+  "engines": {
+    "node": "^24.0.0 || >=26.0.0"
+  }
+}
