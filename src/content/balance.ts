@@ -4,9 +4,10 @@ export const BALANCE = {
   fixedStep: 1 / 60, checkpointSeconds: 2,
   castArea: { left: 0.12, right: 0.88, top: 0.43, bottom: 0.76 },
   profiles: [
-    { id: 'small', name: 'Small test fish', nickname: 'A little silver lining', share: 70, min: 5, mode: 8, max: 12, color: '#e9bb68', gain: 0, pull: 0 },
-    { id: 'medium', name: 'Medium test fish', nickname: 'A spirited little runner', share: 25, min: 15, mode: 22, max: 35, color: '#80b9ab', gain: 0.15, pull: 0.14 },
-    { id: 'strong', name: 'Strong test fish', nickname: 'Some weight on the line', share: 5, min: 35, mode: 45, max: 70, color: '#c98b6b', gain: 0.085, pull: 0.17 },
+    // Green-band edges also drive the slack/tension warnings; the meter is not cosmetic.
+    { id: 'small', name: 'Small test fish', nickname: 'A little silver lining', share: 70, min: 5, mode: 8, max: 12, color: '#e9bb68', gain: 0.24, pull: 0.10, safeLow: 0.05, safeHigh: 0.95 },
+    { id: 'medium', name: 'Medium test fish', nickname: 'A spirited little runner', share: 25, min: 15, mode: 22, max: 35, color: '#80b9ab', gain: 0.15, pull: 0.14, safeLow: 0.08, safeHigh: 0.90 },
+    { id: 'strong', name: 'Strong test fish', nickname: 'Some weight on the line', share: 5, min: 35, mode: 45, max: 70, color: '#c98b6b', gain: 0.085, pull: 0.17, safeLow: 0.22, safeHigh: 0.68 },
   ],
 } as const;
 export type ProfileId = typeof BALANCE.profiles[number]['id'];

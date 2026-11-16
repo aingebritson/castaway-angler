@@ -19,7 +19,7 @@ The numbered milestone controls what to implement now. Later sections describe t
 | Platform | Static TypeScript web app, prepared for GitHub Pages. No native App Store build or shortcut is required. |
 | Players | Single player, no accounts, backend, analytics, or monetisation. |
 | Clock | Phone-local time on the island; actual destination-local time and sun phases after departure. |
-| Fishing | Forgiving tap-to-hook by default, optional automatic hooking, and light hold/release fights. Small fish land automatically. |
+| Fishing | Forgiving tap-to-hook by default, optional automatic hooking, and hold/release fights for every fish. Small fish have a short, forgiving reel-in; stronger fish have a narrower green tension band. |
 | Island pacing | Aim for 45–90 minutes of active play to escape. Optional discoveries and return visits add depth. No required multi-day wait. |
 | Saves | Local, versioned saves; export/import and recovery from the first prototype. |
 | Survival | No hunger, health, death, spoilage, equipment durability, or routine repairs. |
@@ -57,7 +57,7 @@ The first session should produce a catch within a few minutes and an understanda
 
 ## 4. Fishing controls and encounters
 
-**Scene and casting.** Each spot is an illustrated portrait scene. Approximately the lower 55–60 percent is water divided into zones. Drag back and release to cast; a visible marker previews the landing point and reachable water. Keep primary controls in the lower thumb area. Invalid landings do not spend bait. Avoid random casting error in M0; introduce only mild, understandable accuracy differences if later playtests support them.
+**Scene and casting.** Each spot is an illustrated portrait scene. Approximately the lower 55–60 percent is water divided into zones. Drag back and release to cast; a visible marker previews the landing point and reachable water. Keep primary controls in the lower thumb area. Tutorial guidance hides after the first catch; a saved Fishing tips setting can restore it. Experienced players see compact controls, the fight meter, and necessary outcome feedback. Invalid landings do not spend bait. Avoid random casting error in M0; introduce only mild, understandable accuracy differences if later playtests support them.
 
 **Active techniques**
 
@@ -71,10 +71,10 @@ Bite waits begin at 5–20 seconds in M0. Later spots may use longer waits, but 
 
 **Fight.** Hold to reel, release to give line. Use a clearly labelled tension gauge with shape or text cues as well as colour. Fish size, species strength and behaviour, and rig capability determine difficulty. Rarity does not set fight duration.
 
-- Very small fish relative to rig power land in a 1–3 second animation.
+- Every fish requires active reeling. Very small fish relative to rig power have a forgiving 4–7 second reel-in, followed by the landing animation.
 - Ordinary manual fights target 5–15 seconds; substantial catches target 15–30 seconds.
 - Exceptional and legendary fights may reach 30–60 seconds after playtesting. No mandatory two-minute fights.
-- Reeling and fish surges increase tension. Releasing reduces tension while giving some distance back. Give a visible warning before failure; begin with 3 seconds of continuous excessive tension or slack before escape. A brief release must be safe.
+- Reeling and fish surges increase tension. Releasing reduces tension while giving some distance back. Give a visible warning before failure; begin with 3 seconds of continuous excessive tension or slack before escape. A brief release must be safe. Narrow the green tension band for stronger fish, with its edges matching the actual warning thresholds. M0 uses 5–95% for small, 8–90% for medium, and 22–68% for strong profiles.
 - The rod, line, hook, and lure are retained after escape. Consumable bait rules are in section 6.
 - Behaviour archetypes are runner, diver, jumper, bulldog, and thrasher. M0 uses only a simple runner; later archetypes require demonstrated differences that remain readable with one control.
 
@@ -97,7 +97,7 @@ For an untargeted cast:
 1. Validate the zone, equipped method, and available bait. Build candidates with matching hard access requirements and nonzero phase, month, and affinity weights.
 2. Roll against the zone's method-appropriate junk table if it has one. Junk lands without a creature fight.
 3. For a creature opportunity, draw a species using the weights below; roll its length from the configured size distribution restricted to the hook's minimum supported length. A species whose entire size range is below that minimum is ineligible.
-4. Compare the individual with rig capability. Apply automatic landing, an ordinary fight, or the reduced oversized-encounter chance. A rejected oversized opportunity causes no bite and spends no bait; the cast may seek another opportunity within its time limit.
+4. Compare the individual with rig capability. Apply a short forgiving reel-in, an ordinary fight, or the reduced oversized-encounter chance. A rejected oversized opportunity causes no bite and spends no bait; the cast may seek another opportunity within its time limit.
 5. Persist the selected individual when the bite is committed. It cannot change species or size on reload, hooking, or reveal.
 
 For a targeted cast, use the existing sight encounter instead of the species and size draws. Check method and affinity compatibility and apply the same landing classification. A hook's upper preferred length indicates an oversized opportunity, not an absolute candidate exclusion.
@@ -327,7 +327,7 @@ For Andy's iPhone 16 Pro Max:
 - Test the installed Home Screen app as well as Safari. Record iOS and app versions in the playtest result.
 - Respect safe areas and dynamic viewport changes. Keep readable controls around 44 CSS pixels or larger. Avoid crucial interactions at screen edges.
 - Disable unwanted selection/gestures only on the game surface. Menus must remain scrollable, readable, and keyboard-accessible where relevant.
-- Unlock audio on user interaction, pause it when hidden, and provide mute/reduced-motion controls. Do not rely on vibration.
+- Unlock audio on user interaction, pause it when hidden, and provide mute/reduced-motion controls. Andy wants fishing haptics. Safari/Home Screen web apps on iPhone do not provide general vibration control; reliable bite, hook, tension, and landing feedback needs a native app wrapper. Defer that platform decision and implementation; do not add a nonfunctional haptics toggle or depend on undocumented switch-control tricks. Audio and visual cues remain sufficient for play.
 - Target a stable 60 fps during fishing, with a capped rendering resolution if needed. Do not assume the display's maximum refresh rate is the game target.
 - Prefer WebP final art, region-based loading, and roughly under 15 MB per region. Placeholders should keep M0 much smaller.
 

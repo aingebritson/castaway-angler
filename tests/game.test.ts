@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BALANCE, type ProfileId } from '../src/content/balance';
+import { BALANCE, profile, type ProfileId } from '../src/content/balance';
 import { newGame, cast, step, hook, pause, resume, cancel, dispose, records, phaseAtHour, random, sampleProfile, sampleLength, grade, changeSettings, type GameState } from '../src/sim/game';
 import { envelope, parseSave } from '../src/state/save';
 const at={now:1794744000000,phase:'day' as const};
@@ -10,7 +10,8 @@ function bitten(id:ProfileId|'oversized'){
 }
 function landed(id:ProfileId='small'){
   let s=hook(bitten(id));let time=0;
-  while(s.encounter?.status!=='reveal'&&time<60){s=step(s,1/60,s.encounter!.tension<.67,at.now);time+=1/60;}
+  const fish=profile(id),releaseAt=fish.safeLow+(fish.safeHigh-fish.safeLow)*.72;
+  while(s.encounter&&s.encounter.status!=='reveal'&&time<60){s=step(s,1/60,s.encounter.tension<releaseAt,at.now);time+=1/60;}
   return {s,time};
 }
 describe('fishing rules',()=>{
@@ -24,11 +25,27 @@ describe('fishing rules',()=>{
     for(let i=0;i<10000;i++){const [u,r]=random(seed);const id=sampleProfile(u);counts[id]++;const [v,r2]=random(r);seed=r2;const size=sampleLength(id,v);const p=BALANCE.profiles.find(p=>p.id===id)!;expect(size).toBeGreaterThanOrEqual(p.min);expect(size).toBeLessThanOrEqual(p.max);}
     for(const p of BALANCE.profiles)expect(Math.abs(counts[p.id]/100-p.share)).toBeLessThan(2);
   });
-  it('lands small fish automatically and ordinary fights in their target bands',()=>{
-    const small=landed();expect(small.time).toBeLessThan(3);
+  it('lands all sizes through reeling in their target bands',()=>{
+    const small=landed();expect(small.s.encounter?.status).toBe('reveal');expect(small.time).toBeGreaterThan(5);expect(small.time).toBeLessThan(10);
     const medium=landed('medium'),strong=landed('strong');
     expect(medium.s.encounter?.status).toBe('reveal');expect(medium.time).toBeGreaterThan(5);expect(medium.time).toBeLessThan(17);
     expect(strong.s.encounter?.status).toBe('reveal');expect(strong.time).toBeGreaterThan(15);expect(strong.time).toBeLessThan(28);
+  });
+  it('small fish require reeling but forgive a simple steady hold',()=>{
+    const hooked=hook(bitten('small'));
+    expect(hooked.encounter?.status).toBe('fight');
+    expect(advance(hooked,2).encounter?.progress).toBe(0);
+    expect(advance(hooked,8).catches).toHaveLength(0);
+    const caught=advance(hooked,6.1,true);
+    expect(caught.encounter?.status).toBe('reveal');expect(caught.catches).toHaveLength(1);
+  });
+  it('strong fish demand a release sooner than medium fish, with time to correct',()=>{
+    const strong=advance(hook(bitten('strong')),3,true);
+    expect(strong.encounter?.status).toBe('fight');expect(strong.encounter!.danger).toBeGreaterThan(0);
+    const recovered=advance(strong,1.1,false);
+    expect(recovered.encounter?.status).toBe('fight');expect(recovered.encounter!.danger).toBe(0);
+    expect(advance(hook(bitten('strong')),5,true).encounter?.status).toBe('escaped');
+    expect(advance(hook(bitten('medium')),5,true).encounter?.status).toBe('fight');
   });
   it('missed bites and excessive tension/slack lose a fish without a catch or a tackle cost',()=>{
     let missed=advance(bitten('medium'),5.1);expect(missed.catches).toHaveLength(0);expect(missed.encounter).toBeNull();
@@ -50,7 +67,7 @@ describe('fishing rules',()=>{
   });
   it('manual and automatic hooks preserve the same fish identity and size',()=>{
     let s=bitten('small');const manual=hook(s);const auto=step(changeSettings(s,{autoHook:true}),1/60,false,at.now);
-    expect(auto.encounter).toMatchObject({id:manual.encounter!.id,profileId:'small',length:manual.encounter!.length,status:'landing'});
+    expect(auto.encounter).toMatchObject({id:manual.encounter!.id,profileId:'small',length:manual.encounter!.length,status:'fight'});
   });
   it('records a landing once and makes Keep/Release idempotent',()=>{
     const {s}=landed();expect(s.catches).toHaveLength(1);expect(advance(s,20).catches).toHaveLength(1);
@@ -62,6 +79,15 @@ describe('fishing rules',()=>{
     expect(grade('small',5)).toBe('Small');expect(grade('small',12)).toBe('Record grade');
     expect([4,5,7,18,20,23].map(phaseAtHour)).toEqual(['night','dawn','day','dusk','night','night']);
   });
+  it('retires the tutorial after a catch and respects re-enabling tips',()=>{
+    expect(bitten('small').settings).toMatchObject({seenIntro:false,fishingTips:true});
+    const first=landed().s;expect(first.settings).toMatchObject({seenIntro:true,fishingTips:false});
+    let next=changeSettings(dispose(first,first.encounter!.id,'released'),{fishingTips:true});
+    next=cast(next,point,at,'small');while(next.encounter?.status==='waiting')next=step(next,1/60,false,at.now);
+    next=hook(next);next=advance(next,6.1,true);
+    expect(next.catches).toHaveLength(2);expect(next.settings.fishingTips).toBe(true);
+    expect(parseSave(envelope(next,at.now)).payload.settings.fishingTips).toBe(true);
+  });
 });
 describe('save validation and migration',()=>{
   it('round trips a pending reveal and rejects duplicate/missing records',()=>{
@@ -70,10 +96,25 @@ describe('save validation and migration',()=>{
     const missing=structuredClone(save);missing.payload.catches=[];expect(()=>parseSave(missing)).toThrow();
   });
   it('migrates the supported v1 fixture while rejecting unsupported/future/wrong content',()=>{
-    const save:any=envelope(newGame(1),at.now);save.schemaVersion=1;delete save.payload.settings.reducedMotion;
-    const migrated=parseSave(save);expect(migrated.schemaVersion).toBe(2);expect(migrated.payload.settings.reducedMotion).toBe(false);
+    const save:any=envelope(newGame(1),at.now);save.schemaVersion=1;delete save.payload.settings.reducedMotion;delete save.payload.settings.fishingTips;
+    const migrated=parseSave(save);expect(migrated.schemaVersion).toBe(3);expect(migrated.payload.settings.reducedMotion).toBe(false);expect(migrated.payload.settings.fishingTips).toBe(true);
     expect(()=>parseSave({...save,schemaVersion:99})).toThrow('newer');expect(()=>parseSave({...save,contentVersion:'future-region'})).toThrow('different');
     expect(()=>parseSave('{bad')).toThrow('JSON');expect(()=>parseSave({...save,appId:'other'})).toThrow('not a Castaway');
+  });
+  it('upgrades v2 catches and an active encounter without losing records or settings',()=>{
+    const caught=landed().s;
+    const active=cast(dispose(caught,caught.encounter!.id,'kept'),point,at,'strong');
+    const save:any=envelope(pause(changeSettings(active,{autoHook:true,muted:true,reducedMotion:true})),at.now);
+    save.schemaVersion=2;delete save.payload.settings.fishingTips;
+    const original=structuredClone(save), migrated=parseSave(save);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.payload.catches).toEqual(save.payload.catches);
+    expect(migrated.payload.encounter).toEqual(save.payload.encounter);
+    expect(migrated.payload.settings).toEqual({autoHook:true,muted:true,reducedMotion:true,seenIntro:true,fishingTips:false});
+    expect(save).toEqual(original);
+    const unlanded:any=envelope(bitten('small'),at.now);unlanded.schemaVersion=2;
+    unlanded.payload.settings.seenIntro=true;delete unlanded.payload.settings.fishingTips;
+    expect(parseSave(unlanded).payload.settings).toMatchObject({seenIntro:false,fishingTips:true});
   });
   it('rejects invalid references, out-of-range lengths, and malformed inventory state',()=>{
     const save:any=envelope(landed().s,at.now);save.payload.catches[0].profileId='unknown';expect(()=>parseSave(save)).toThrow();

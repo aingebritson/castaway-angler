@@ -16,13 +16,13 @@ export type Encounter = {
 export type GameState = {
   rng: number; nextId: number; casts: number; revision: number;
   catches: Catch[]; encounter: Encounter | null; paused: boolean;
-  settings: { autoHook: boolean; muted: boolean; reducedMotion: boolean; seenIntro: boolean };
+  settings: { autoHook: boolean; muted: boolean; reducedMotion: boolean; seenIntro: boolean; fishingTips: boolean };
   message: string;
 };
 
 export function newGame(seed: number): GameState {
   return { rng: seed >>> 0, nextId: 1, casts: 0, revision: 0, catches: [], encounter: null, paused: false,
-    settings: { autoHook: false, muted: false, reducedMotion: false, seenIntro: false }, message: '' };
+    settings: { autoHook: false, muted: false, reducedMotion: false, seenIntro: false, fishingTips: true }, message: '' };
 }
 
 // Mulberry32: explicit state makes gameplay independent of animation randomness.
@@ -69,7 +69,7 @@ export function cast(state: GameState, point: Point, clock: ClockContext, forced
   const [wait, r3] = random(r2);
   const id = forced === 'oversized' ? 'strong' : forced ?? sampleProfile(selection);
   return { ...state, rng: r3, casts: state.casts + 1, nextId: state.nextId + 1, revision: state.revision + 1,
-    message: '', settings: { ...state.settings, seenIntro: true },
+    message: '',
     encounter: {
       id: `catch-${state.rng.toString(16)}-${state.nextId}`, profileId: id, length: sampleLength(id, size),
       phase: clock.phase, timestamp: clock.now, status: 'waiting', remaining: BALANCE.waitMin + wait * (BALANCE.waitMax - BALANCE.waitMin),
@@ -80,9 +80,8 @@ export function cast(state: GameState, point: Point, clock: ClockContext, forced
 
 export function hook(state: GameState): GameState {
   if (state.paused || state.encounter?.status !== 'bite') return state;
-  const autoLand = state.encounter.profileId === 'small' && !state.encounter.oversized;
   return { ...state, revision: state.revision + 1, encounter: { ...state.encounter,
-    status: autoLand ? 'landing' : 'fight', elapsed: 0, remaining: autoLand ? BALANCE.landingTime : 0 } };
+    status: 'fight', elapsed: 0, remaining: 0 } };
 }
 
 export function pause(state: GameState): GameState {
@@ -125,8 +124,8 @@ export function step(state: GameState, dt: number, holding: boolean, now: number
     const surge = Math.sin(e.elapsed * 1.6) > .5 ? .075 : 0;
     e.tension = Math.max(0, Math.min(1, e.tension + (holding ? fish.pull + surge : -.33 + surge) * dt));
     e.progress = Math.max(0, Math.min(1, e.progress + (e.oversized ? 0 : holding ? fish.gain : -.018) * dt));
-    e.danger = e.tension >= .9 ? e.danger + dt : 0;
-    e.slack = e.tension <= .08 ? e.slack + dt : 0;
+    e.danger = e.tension >= fish.safeHigh ? e.danger + dt : 0;
+    e.slack = e.tension <= fish.safeLow ? e.slack + dt : 0;
     if (e.danger >= BALANCE.warningTime) return escape(next, 'Too much pull—this one got away. Your tackle is safe.');
     if (e.slack >= BALANCE.warningTime) return escape(next, 'A little too much slack. Your tackle is safe.');
     if (e.progress >= 1) { e.status = 'landing'; e.remaining = BALANCE.landingTime; next.revision++; }
@@ -134,6 +133,7 @@ export function step(state: GameState, dt: number, holding: boolean, now: number
     e.remaining = Math.max(0, e.remaining - dt);
     if (e.remaining === 0) {
       e.status = 'reveal'; next.revision++;
+      if (!state.settings.seenIntro) next.settings = { ...state.settings, seenIntro: true, fishingTips: false };
       if (!state.catches.some(c => c.id === e.id)) {
         next.catches = [...state.catches, { id: e.id, profileId: e.profileId, length: e.length,
           phase: e.phase, timestamp: now, disposition: 'pending' }];

@@ -36,7 +36,7 @@ app.innerHTML = `<main class="game-shell" aria-label="Castaway Angler fishing ga
   <section class="play-panel" aria-label="Fishing controls">
     <div class="panel-top"><span class="eyebrow" id="action-kicker">YOUR NEXT DISCOVERY</span><button id="cancel-cast" class="text-button" hidden>Reel in</button></div>
     <h2 id="action-title">See what the tide brings.</h2><p id="action-hint">Hold the button, pull down, and release to cast.</p>
-    <div id="fight-meter" hidden><div class="meter-label"><span id="tension-label">Easy does it</span><span id="distance-label"></span></div><div class="tension-track"><span class="safe-band"></span><span id="tension-needle"></span></div><div class="distance-track"><span id="distance-fill"></span></div></div>
+    <div id="fight-meter" hidden><div class="meter-label"><span id="tension-label">Easy does it</span><span id="distance-label"></span></div><div class="tension-track"><span id="tension-needle"></span></div><div class="distance-track"><span id="distance-fill"></span></div></div>
     <button id="primary" class="primary cast-button">${icon('hook')}<span id="primary-label">Pull back to cast</span><span class="button-flourish">↓</span></button>
     <p class="rig-line">${icon('hook',14)} Old pole <span>·</span> Unlimited test bait</p>
   </section>
@@ -54,6 +54,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 const shell = document.querySelector<HTMLElement>('.game-shell')!;
 const dialog = $<HTMLDialogElement>('modal');
 const primary = $<HTMLButtonElement>('primary');
+const playPanel = document.querySelector<HTMLElement>('.play-panel')!;
 const offline = new OfflineManager(() => { if (modalType === 'settings') renderSettings(); });
 const esc = (value: string) => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]!));
 const setText = (id: string, value: string) => { if ($(id).textContent !== value) $(id).textContent = value; };
@@ -116,7 +117,7 @@ function renderCollection() {
 function renderSettings() {
   const setting=(key: keyof GameState['settings'], title: string, text: string)=>`<label class="setting-row"><span><strong>${title}</strong><small>${text}</small></span><input type="checkbox" data-setting="${key}" ${state.settings[key]?'checked':''}><span class="switch" aria-hidden="true"></span></label>`;
   $('modal-content').innerHTML = `<p class="sheet-lede">Make yourself comfortable.</p>
-    <div class="settings-list">${setting('autoHook','Automatic hook','Same fish, a little less timing.')}${setting('muted','Quiet water','Turn off fishing sounds.')}${setting('reducedMotion','Gentler motion','Keep the water still.')}</div>
+    <div class="settings-list">${setting('fishingTips','Fishing tips','Show guidance. Hides after your first catch.')}${setting('autoHook','Automatic hook','Sets the hook for you. You still reel in.')}${setting('muted','Quiet water','Turn off fishing sounds.')}${setting('reducedMotion','Gentler motion','Keep the water still.')}</div>
     <section class="settings-section"><h3>Your progress</h3><p>Saved on this device. Keep a file backup to bring your catches with you.</p><div class="button-pair"><button class="secondary" id="export-save">Export save ${icon('arrow',17)}</button><button class="secondary" id="import-save">Import save</button></div><input id="import-file" type="file" accept=".json,application/json" hidden><button class="text-button" id="restore-import">Restore pre-import backup</button>${failure||!writeEnabled?'<button class="secondary" id="retry-save">Try saving this session</button>':''}</section>
     <section class="settings-section"><h3>Take the island with you</h3><p>On iPhone, open this page in Safari. Tap Share, then Add to Home Screen.</p><span class="offline-status">${offline.ready?'● Ready for offline fishing':import.meta.env.DEV?'Local development preview':'Preparing offline fishing…'}</span>${offline.waiting?`<button class="secondary" id="apply-update" ${state.encounter?'disabled':''}>${state.encounter?'Finish your cast to update':'Install ready update'}</button>`:''}</section>
     <p class="fine-print">Island time follows your phone. Dawn 5–7, day 7–18, dusk 18–20, night 20–5. Every test fish is available all day.</p>
@@ -196,12 +197,18 @@ function render() {
   setText('phase-label',phase.charAt(0).toUpperCase()+phase.slice(1));setText('local-time',timeLabel());
   if($('phase-icon').dataset.phase!==phase){$('phase-icon').innerHTML=icon(phase==='night'?'moon':'sun',19);$('phase-icon').dataset.phase=phase;}
   setText('collection-count',`${BALANCE.profiles.filter(p=>records(state,p.id).count>0).length} / 3`);
-  $('aim-tip').hidden=!aim;$('pause-card').hidden=!state.paused||dialog.open;
+  $('aim-tip').hidden=!aim||!state.settings.fishingTips;$('pause-card').hidden=!state.paused||dialog.open;
   $('reveal-card').hidden=status!=='reveal'||state.paused||dialog.open;
   if(status==='reveal'&&revealId!==e!.id){revealId=e!.id;renderReveal();}
   if(status!=='reveal')revealId='';
-  document.querySelector<HTMLElement>('.play-panel')!.hidden=status==='reveal'||state.paused;
+  playPanel.hidden=status==='reveal'||state.paused;
   $('cancel-cast').hidden=!e||['reveal','escaped'].includes(status);
+  playPanel.classList.toggle('compact',!state.settings.fishingTips);
+  $('action-kicker').hidden=!state.settings.fishingTips;
+  $('action-title').hidden=!state.settings.fishingTips;
+  $('action-hint').hidden=!state.settings.fishingTips&&status!=='escaped';
+  playPanel.querySelector<HTMLElement>('.panel-top')!.hidden=!state.settings.fishingTips&&$('cancel-cast').hidden;
+  playPanel.querySelector<HTMLElement>('.rig-line')!.hidden=!state.settings.fishingTips;
   $('fight-meter').hidden=status!=='fight';
   primary.disabled=busy||state.paused||['landing','escaped'].includes(status);
   primary.classList.toggle('biting',status==='bite');primary.classList.toggle('reeling',holding&&status==='fight');
@@ -216,8 +223,11 @@ function render() {
   };
   const c=copy[status];setText('action-kicker',c[0]);setText('action-title',c[1]);setText('action-hint',c[2]);setText('primary-label',c[3]);
   if(status==='fight'&&e){
-    const label=e.tension>=.9?'Too tight · release!':e.tension<=.08?'Too loose · reel!':e.tension>.72?'A strong pull · ease off':'Steady line';
+    const fish=profile(e.profileId);
+    const label=e.tension>=fish.safeHigh?'Too tight · release!':e.tension<=fish.safeLow?'Too loose · reel!':e.tension>fish.safeHigh-(fish.safeHigh-fish.safeLow)*.22?'A strong pull · ease off':'Steady line';
     setText('tension-label',label);setText('distance-label',`${Math.round(e.progress*100)}% ashore`);
+    $('fight-meter').style.setProperty('--safe-low',`${fish.safeLow*100}%`);
+    $('fight-meter').style.setProperty('--safe-high',`${fish.safeHigh*100}%`);
     $('tension-needle').style.left=`${e.tension*100}%`;$('distance-fill').style.width=`${e.progress*100}%`;
     $('fight-meter').classList.toggle('danger',e.danger>0||e.slack>0);
   }

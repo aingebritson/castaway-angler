@@ -69,3 +69,12 @@ Add the date, affected milestone, old and new behaviour, reason, and relevant pl
 - Kept test tools behind Settings and a separate `?debug=1` save. Forced test encounters use a shortened wait only in that test bench; regular play retains the 5–20 second wait.
 - A browser update check exposed a stale-shell problem after a local rebuild. The service worker now fetches the latest shell on explicit online navigation, falls back offline, retains two previous asset caches, and fingerprints builds. Waiting-worker activation still requires an idle point and an explicit update action.
 - M0 is ready for phone testing only after deployment and the recorded checks. It is not accepted as complete until Andy confirms the feel on the iPhone 16 Pro Max.
+
+## M0 phone feedback and revision on November 15 2026
+
+- Andy confirmed casting/landing markers, Keep/Release, interruption handling, saves, and offline play worked on his iPhone 16 Pro Max. The installed iOS version remains unrecorded.
+- The persistent instruction card felt intrusive. Guidance now hides after the first catch and can be restored through Fishing tips in Settings. Migrated saves with catches start with compact controls.
+- Small automatic catches were too easy and unengaging. All fish now require reeling. Small fights target 4–7 seconds with a wide green band; medium mechanics are unchanged. Strong fish use a narrower green band for modest added challenge, retaining three seconds to recover from excessive tension/slack.
+- Save schema 3 adds Fishing tips, migrates schema 1/2 without changing catches or encounter identities, and preserves the existing content version.
+- Haptics are requested but remain deferred by the iPhone web platform. [WebKit's vibration request](https://bugs.webkit.org/show_bug.cgi?id=288846) is closed WONTFIX; no reliable general vibration control is available to this Safari/Home Screen game. A native wrapper is the next platform option to evaluate for bite/hook/tension/landing feedback. No unsupported workaround or nonfunctional control was added.
+- Recheck the revised small/strong fights and compact interface on the phone before accepting M0 and beginning M1a. M1a is not included in this revision.

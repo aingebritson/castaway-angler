@@ -3,7 +3,7 @@ import { profile } from '../content/balance';
 import { type GameState, validPoint } from '../sim/game';
 
 export const APP_ID = 'castaway-angler';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const CONTENT_VERSION = 'm0-test-v1';
 const uint = z.number().int().min(0).max(4294967295);
 const positiveTime = z.number().finite().min(0).max(8640000000000000);
@@ -20,7 +20,7 @@ const encounterSchema = z.object({ ...recordFields,
 export const stateSchema = z.object({
   rng: uint, nextId: z.number().int().positive(), casts: z.number().int().nonnegative(), revision: z.number().int().nonnegative(),
   catches: z.array(catchSchema).max(100000), encounter: encounterSchema.nullable(), paused: z.boolean(),
-  settings: z.object({ autoHook: z.boolean(), muted: z.boolean(), reducedMotion: z.boolean(), seenIntro: z.boolean() }).strict(),
+  settings: z.object({ autoHook: z.boolean(), muted: z.boolean(), reducedMotion: z.boolean(), seenIntro: z.boolean(), fishingTips: z.boolean() }).strict(),
   message: z.string().max(400),
 }).strict().superRefine((s, ctx) => {
   const issue = (message: string) => ctx.addIssue({ code: 'custom', message });
@@ -59,6 +59,12 @@ export function parseSave(value: unknown): SaveEnvelope {
   if (source.schemaVersion === 1) {
     source = { ...source, schemaVersion: 2, payload: { ...source.payload,
       settings: { ...source.payload?.settings, reducedMotion: source.payload?.settings?.reducedMotion ?? false } } };
+  }
+  if (source.schemaVersion === 2) {
+    // Older builds marked the intro seen on casting. The new tutorial ends on a catch.
+    const hasCaught = Array.isArray(source.payload?.catches) && source.payload.catches.length > 0;
+    source = { ...source, schemaVersion: 3, payload: { ...source.payload,
+      settings: { ...source.payload?.settings, seenIntro: hasCaught, fishingTips: !hasCaught } } };
   }
   const parsed = envelopeSchema.safeParse(source);
   if (!parsed.success) throw new Error(`Save validation failed: ${parsed.error.issues[0]?.message ?? 'invalid data'}. Your current game is unchanged.`);

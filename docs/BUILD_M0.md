@@ -12,18 +12,18 @@ This brief is ready for a future implementation request. Preparing these documen
 
 ## The playable experience
 
-Launch into one portrait Rocky Point scene. Show a short instruction for dragging back to cast, then let the player fish. The lower water area contains one reachable zone; no navigation or equipment-selection screens are needed.
+Launch into one portrait Rocky Point scene. Show casting and reeling guidance until the first catch, then use compact controls. A saved Fishing tips setting can show or hide guidance at any time. Existing players with catches start with tips hidden after the update. The lower water area contains one reachable zone; no navigation or equipment-selection screens are needed.
 
-The loop is: ready → aiming → waiting/nibbling → bite → automatic landing or fight → reveal → Keep or Release → ready. Missed bites and escaped fish return to ready with a short message. Invalid casts cancel without consuming anything. Any active state can be paused; an interrupted app resumes through an explicit Resume button.
+The loop is: ready → aiming → waiting/nibbling → bite → manual fight → landing → reveal → Keep or Release → ready. Missed bites and escaped fish return to ready with a short message. Invalid casts cancel without consuming anything. Any active state can be paused; an interrupted app resumes through an explicit Resume button.
 
 - Drag back and release to cast, with a readable landing marker. Do not add random aim error.
 - Use a 5–20 second bite wait and a 3-second hook window. Distinguish nibble from bite visually and with optional sound.
 - Default to tap-to-hook; provide a saved automatic-hook setting with identical catch odds and records.
-- Hold to reel and release to lower tension. Small fish land automatically. A warning must give time to correct high tension or slack before escape.
+- Hold to reel and release to lower tension. Every fish requires reeling; small fish have a short, forgiving fight. The green tension band narrows for stronger fish and matches the actual warning thresholds. A warning must give time to correct high tension or slack before escape.
 - Keep tackle after any failure. Use unlimited test bait, with no bait inventory management.
 - A reveal shows a labelled test specimen, length, size grade, new-profile/record banners, and Keep/Release. Do not invent biological facts or scientific names.
 - A compact collection panel shows discovered test profiles, total catches, retained count, and personal-best lengths. Keep and Release both preserve records; only Keep increases retained count. No full field guide or detailed catch management is needed.
-- Settings contain hook assistance, mute, reduced motion, save export/import, and saved/unsaved status. Pause fishing while menus are open.
+- Settings contain fishing tips, hook assistance, mute, reduced motion, save export/import, and saved/unsaved status. Pause fishing while menus are open.
 
 ## Prototype content and timing
 
@@ -31,17 +31,17 @@ Use simple shapes and fictional test profiles. Their purpose is to exercise inte
 
 | Profile | Untargeted selection share | Length min / typical / max | Intended interaction |
 | --- | --- | --- | --- |
-| Small test fish | 70% | 5 / 8 / 12 cm | Automatic landing in 1–3 seconds |
+| Small test fish | 70% | 5 / 8 / 12 cm | Forgiving 4–7 second reel-in |
 | Medium test fish | 25% | 15 / 22 / 35 cm | Light 5–15 second fight |
 | Strong test fish | 5% | 35 / 45 / 70 cm | Manageable 15–25 second fight |
 
 Use a bounded triangular distribution with the listed typical value as the mode for these synthetic fixtures. Grade each length against that profile's fixed distribution. The researched species model comes later; explicitly keep prototype data separate. Omit weight rather than invent a length-weight relation. All three are available in every island phase and month. Do not label their probabilities as the final rarity system.
 
-Use one starter rig and a simple runner behaviour. Tune its values so both manual fights are winnable with ordinary hold/release timing. Keep all M0 constants in one documented balance file. Record any substantive timing changes after tests.
+Use one starter rig and a simple runner behaviour. Tune its values so all three fights are winnable with ordinary hold/release timing. Fight durations exclude the 1.8-second landing animation. Green bands are 5–95% (small), 8–90% (medium), and 22–68% (strong); three continuous seconds outside the band cause escape. Medium reeling rates and warning thresholds are unchanged from the first phone build. Keep all M0 constants in one documented balance file. Record any substantive timing changes after tests.
 
 Include a debug-only overmatched scenario that demonstrates the 3–8 second clear escape and preserved equipment. It does not enter normal M0 random catches. Debug can also force each of the three profiles, select a seed/phase, and clear a separate test save. Keep debug controls out of the normal fishing interface.
 
-The island uses the phone's local hour: dawn 05:00–07:00, day 07:00–18:00, dusk 18:00–20:00, night otherwise. A simple phase tint and label are enough. No geolocation, solar library, remote time service, or live weather is needed in M0. All phases remain legible and playable.
+The island uses the phone's local hour: dawn 05:00–07:00, day 07:00–18:00, dusk 18:00–20:00, night otherwise. A simple phase tint and label are enough. No geolocation, solar library, remote time service, or live weather is needed in M0. Haptics are desired, but reliable fishing vibrations on iPhone require a native app wrapper; the web prototype does not promise them. Revisit that platform choice before implementing haptics. All phases remain legible and playable.
 
 ## Technical scope
 
@@ -73,7 +73,7 @@ Cache the shell and prototype assets for offline use after a successful initial 
 ## Work sequence
 
 1. Build the smallest playable cast-to-reveal loop using shapes, with deterministic rules and mouse/touch input.
-2. Tune the automatic landing and light fight, add forgiving hooking/assist, and check portrait layout in a browser.
+2. Tune short small-fish reeling and the light/strong fights, add forgiving hooking/assist, and check portrait layout in a browser.
 3. Add records, pending-reveal handling, save/recovery/export/import, pause/resume, offline install support, and safe updates.
 4. Run the relevant checks and prepare a phone-testable build. Provide concise installation instructions for the chosen hosting destination.
 5. Stop for Andy's phone playtest. Revise M0 feel based on feedback before adding M1a.
@@ -102,7 +102,7 @@ Record the iOS version and app build, then try:
 
 1. Open the hosted build in Safari, add it to the Home Screen, and launch the installed app.
 2. Cast ten times. Judge whether aiming feels natural, bites are readable, and the main controls are comfortable with one thumb.
-3. Try a manual fight and an automatically landed fish; test the auto-hook setting. Confirm ordinary successful cycles generally fit within a minute, excluding idle time on the reveal card.
+3. Try reeling in each fish size; test the auto-hook setting. Confirm ordinary successful cycles generally fit within a minute, excluding idle time on the reveal card.
 4. Lock the phone during a bite and switch apps during a fight. Return and confirm the fish waits for Resume and the rod is not stuck reeling.
 5. Keep one catch, release another, close/reopen, and check records and retained counts.
 6. Export a save, make another catch, import the earlier save, and confirm the preview/replacement behaves clearly. Save an export outside the game for recovery testing.
